@@ -111,10 +111,13 @@ El APK de release queda en `app/build/outputs/apk/release/app-release.apk`.
 - El release se firma con `keystore/monny-release.jks` (datos en
   `keystore.properties`). **Guardá esos dos archivos**: con ellos se pueden
   publicar actualizaciones que se instalan encima sin borrar datos.
+- Esos archivos **no están en el repositorio** (por seguridad). Si clonás el
+  proyecto, generá tu propio keystore y creá `keystore.properties` para poder
+  compilar un release firmado; el debug funciona sin nada extra.
 - Si se pierde la llave, Android obliga a desinstalar para poder instalar otra
   versión (y se pierden los datos locales).
 - Actualizar con la misma firma conserva todo. Las migraciones de Room están
-  versionadas (1→2→3) para no perder datos.
+  versionadas (1→2→3→4→5→6) para no perder datos.
 
 ## Respaldos
 
