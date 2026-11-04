@@ -3,6 +3,8 @@
 App Android para llevar los gastos de tarjetas de crédito, el dinero apartado
 ("en sobre") y sobres de ahorro. Local, sin cuentas, sin internet.
 
+📖 [Arquitectura del código](docs/ARQUITECTURA.md)
+
 ## Stack
 
 - Kotlin + Jetpack Compose (Material 3)
