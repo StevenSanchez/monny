@@ -343,6 +343,7 @@ fun HomeScreen(
     }
 }
 
+/** Tarjeta grande con el resumen del ciclo y las acciones principales. */
 @Composable
 private fun HeroCard(
     home: cr.monny.ui.HomeState,
@@ -506,6 +507,7 @@ private fun HeroStat(label: String, cents: Long, color: Color) {
     }
 }
 
+/** Hoja para apartar o retirar dinero del "en sobre" del ciclo. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CoverSheet(

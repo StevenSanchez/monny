@@ -338,6 +338,7 @@ fun CycleDetailScreen(
     }
 }
 
+/** Fila tocable de un pago o apartado (los retiros se muestran en rojo). */
 @Composable
 private fun MovementRow(
     label: String,
@@ -373,6 +374,7 @@ private fun MovementRow(
     }
 }
 
+/** Diálogo para editar monto, fecha y nota de un pago o apartado. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MovementEditDialog(

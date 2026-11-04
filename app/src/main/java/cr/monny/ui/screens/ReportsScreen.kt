@@ -159,6 +159,7 @@ fun ReportsScreen(
     }
 }
 
+/** Barras simples (Canvas no: cajas) para comparar el gasto entre ciclos. */
 @Composable
 private fun CycleBars(
     values: List<Long>,

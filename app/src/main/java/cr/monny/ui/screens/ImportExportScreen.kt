@@ -616,6 +616,7 @@ fun ImportExportScreen(
     }
 }
 
+/** Descarga el CSV del enlace (soporta enlaces de Google Sheets). */
 private fun fetchCsv(rawUrl: String, sheet: String): String {
     val finalUrl = buildSheetUrl(rawUrl.trim(), sheet.trim())
     val connection = URL(finalUrl).openConnection() as HttpURLConnection
@@ -626,6 +627,7 @@ private fun fetchCsv(rawUrl: String, sheet: String): String {
     return connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
 }
 
+/** Convierte un enlace normal de Sheets en el endpoint CSV (gviz) de una hoja. */
 private fun buildSheetUrl(url: String, sheet: String): String {
     val id = Regex("/spreadsheets/d/([a-zA-Z0-9_-]+)").find(url)?.groupValues?.getOrNull(1)
         ?: return url
