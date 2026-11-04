@@ -5,6 +5,10 @@ App Android para llevar los gastos de tarjetas de crédito, el dinero apartado
 
 📖 [Arquitectura del código](docs/ARQUITECTURA.md)
 
+| Inicio | Reportes | Detalle de ciclo |
+|---|---|---|
+| <img src="docs/screenshots/inicio.png" width="240"> | <img src="docs/screenshots/reportes.png" width="240"> | <img src="docs/screenshots/ciclo.png" width="240"> |
+
 ## Stack
 
 - Kotlin + Jetpack Compose (Material 3)
