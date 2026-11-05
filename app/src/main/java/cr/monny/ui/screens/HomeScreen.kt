@@ -83,8 +83,14 @@ fun HomeScreen(
     val cards by vm.cards.collectAsStateWithLifecycle()
     val ready by vm.ready.collectAsStateWithLifecycle()
     val sharedEnabled by vm.sharedEnabled.collectAsStateWithLifecycle()
+    val allExpenses by vm.allExpenses.collectAsStateWithLifecycle()
+    val sharedPayments by vm.sharedPayments.collectAsStateWithLifecycle()
     var showCover by remember { mutableStateOf(false) }
     var showPayConfirm by remember { mutableStateOf(false) }
+    var showSharedPayment by remember { mutableStateOf(false) }
+    val sharedOwed = allExpenses.sumOf { it.amountCents * it.sharedPercent / 100 }
+    val sharedPaid = sharedPayments.sumOf { it.amountCents }
+    val sharedDebt = sharedOwed - sharedPaid
 
     if (!ready) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -177,16 +183,11 @@ fun HomeScreen(
             )
         }
 
-        if (sharedEnabled) {
-            val sharedExpenses = home.expenses.filter { it.sharedPercent > 0 }
-            val sharedOwed = sharedExpenses.sumOf { it.amountCents * it.sharedPercent / 100 }
-            if (sharedOwed > 0) {
-                item {
-                    MonnyCard(Modifier.fillMaxWidth()) {
-                        Row(
-                            modifier = Modifier.padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
+        if (sharedEnabled && sharedOwed > 0) {
+            item {
+                MonnyCard(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 Icons.Rounded.People,
                                 contentDescription = null,
@@ -194,17 +195,22 @@ fun HomeScreen(
                             )
                             Spacer(Modifier.width(12.dp))
                             Column(Modifier.weight(1f)) {
-                                Text("Compartido este ciclo", style = MaterialTheme.typography.bodyLarge)
+                                Text("Compartido", style = MaterialTheme.typography.bodyLarge)
                                 Text(
-                                    "${sharedExpenses.size} ${if (sharedExpenses.size == 1) "gasto" else "gastos"} marcados",
+                                    "Gastos ${Money.format(sharedOwed)} · recibido ${Money.format(sharedPaid)}",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
                             Text(
-                                "Te deben ${Money.format(sharedOwed)}",
+                                if (sharedDebt > 0) "Te deben ${Money.format(sharedDebt)}" else "Al día",
                                 style = MaterialTheme.typography.titleMedium,
                             )
+                        }
+                        if (sharedDebt > 0) {
+                            TextButton(onClick = { showSharedPayment = true }) {
+                                Text("Registrar abono")
+                            }
                         }
                     }
                 }
@@ -311,6 +317,16 @@ fun HomeScreen(
             cycleKey = home.cutKey,
             coveredCents = home.coveredCents,
             onDismiss = { showCover = false },
+        )
+    }
+
+    if (showSharedPayment && home.card != null && sharedDebt > 0) {
+        SharedPaymentSheet(
+            vm = vm,
+            cardId = home.card!!.id,
+            cycleKey = home.cutKey,
+            debtCents = sharedDebt,
+            onDismiss = { showSharedPayment = false },
         )
     }
 
@@ -504,6 +520,102 @@ private fun HeroStat(label: String, cents: Long, color: Color) {
             color = color,
             fontWeight = FontWeight.SemiBold,
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SharedPaymentSheet(
+    vm: MonnyViewModel,
+    cardId: Long,
+    cycleKey: LocalDate,
+    debtCents: Long,
+    onDismiss: () -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val envelopes by vm.envelopes.collectAsStateWithLifecycle()
+    var amount by remember { mutableStateOf("") }
+    var note by remember { mutableStateOf("") }
+    var envelopeId by remember { mutableStateOf<Long?>(null) }
+    val value = Money.parse(amount) ?: 0L
+
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 32.dp),
+        ) {
+            Text("Registrar abono", style = MaterialTheme.typography.headlineSmall)
+            Text(
+                "Te deben ${Money.format(debtCents)}. El monto se descuenta de esa deuda " +
+                    "y se suma al destino que elijas.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(16.dp))
+            MoneyField(value = amount, onValueChange = { amount = it }, label = "Monto recibido")
+
+            Spacer(Modifier.height(16.dp))
+            Text("¿A dónde va la plata?", style = MaterialTheme.typography.labelLarge)
+            Spacer(Modifier.height(8.dp))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                item {
+                    FilterChip(
+                        selected = envelopeId == null,
+                        onClick = { envelopeId = null },
+                        label = { Text("En sobre") },
+                    )
+                }
+                items(envelopes, key = { it.envelope.id }) { row ->
+                    FilterChip(
+                        selected = envelopeId == row.envelope.id,
+                        onClick = { envelopeId = row.envelope.id },
+                        label = { Text(row.envelope.name) },
+                    )
+                }
+            }
+            Text(
+                if (envelopeId == null) {
+                    "Se suma al apartado del ciclo actual."
+                } else {
+                    "Se suma al saldo del sobre " +
+                        (envelopes.firstOrNull { it.envelope.id == envelopeId }?.envelope?.name ?: "") + "."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Spacer(Modifier.height(12.dp))
+            OutlinedTextField(
+                value = note,
+                onValueChange = { note = it },
+                label = { Text("Nota (opcional)") },
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            Spacer(Modifier.height(20.dp))
+            Button(
+                enabled = value in 1..debtCents,
+                onClick = {
+                    val parsed = Money.parse(amount) ?: return@Button
+                    vm.addSharedPayment(
+                        cardId = cardId,
+                        cycleKey = cycleKey,
+                        amountCents = parsed,
+                        envelopeId = envelopeId,
+                        note = note,
+                    ) { ok -> if (ok) onDismiss() }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+            ) {
+                Text(
+                    if (value > 0) "Registrar ${Money.format(value)}" else "Registrar abono",
+                )
+            }
+        }
     }
 }
 

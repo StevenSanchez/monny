@@ -22,6 +22,7 @@ data class BackupData(
     val plans: List<InstallmentPlan> = emptyList(),
     val recurring: List<RecurringExpense> = emptyList(),
     val recurringCharges: List<RecurringCharge> = emptyList(),
+    val sharedPayments: List<SharedPayment> = emptyList(),
 )
 
 /** Respaldo completo en JSON, sin dependencias externas. */
@@ -147,6 +148,17 @@ object Backup {
             }
         })
 
+        root.put("sharedPayments", JSONArray().apply {
+            data.sharedPayments.forEach { p ->
+                put(JSONObject().apply {
+                    put("id", p.id); put("date", p.date); put("amountCents", p.amountCents)
+                    put("envelopeId", p.envelopeId ?: JSONObject.NULL)
+                    put("cycleKey", p.cycleKey); put("note", p.note)
+                    put("createdAt", p.createdAt)
+                })
+            }
+        })
+
         return root.toString()
     }
 
@@ -251,6 +263,15 @@ object Backup {
             },
             recurringCharges = root.optJSONArray("recurringCharges").objects().map { o ->
                 RecurringCharge(ruleId = o.getLong("ruleId"), cycleKey = o.getLong("cycleKey"))
+            },
+            sharedPayments = root.optJSONArray("sharedPayments").objects().map { o ->
+                SharedPayment(
+                    id = o.getLong("id"), date = o.getLong("date"),
+                    amountCents = o.getLong("amountCents"),
+                    envelopeId = if (o.isNull("envelopeId")) null else o.getLong("envelopeId"),
+                    cycleKey = o.getLong("cycleKey"), note = o.optString("note"),
+                    createdAt = o.optLong("createdAt", System.currentTimeMillis()),
+                )
             },
         )
     }

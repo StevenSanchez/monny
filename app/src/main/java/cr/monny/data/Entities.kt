@@ -179,6 +179,19 @@ data class RecurringExpense(
     val createdAt: Long = System.currentTimeMillis(),
 )
 
+/** Abono recibido por gastos compartidos (la otra persona te paga). */
+@Entity(tableName = "shared_payments")
+data class SharedPayment(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val date: Long,
+    val amountCents: Long,
+    /** `null` = se sumó al "en sobre" del ciclo [cycleKey]; si no, al sobre indicado. */
+    val envelopeId: Long? = null,
+    val cycleKey: Long,
+    val note: String = "",
+    val createdAt: Long = System.currentTimeMillis(),
+)
+
 /**
  * Marca qué ciclos ya generó cada gasto fijo.
  * Evita duplicados y que un cobro borrado a mano vuelva a aparecer.

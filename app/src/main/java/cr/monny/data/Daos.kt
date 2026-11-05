@@ -319,8 +319,7 @@ interface PlanDao {
  * `recurring_charges` evita duplicados y que un cobro borrado se regenere.
  */
 @Dao
-interface RecurringDao {
-    @Query("SELECT * FROM recurring ORDER BY active DESC, merchant")
+interface RecurringDao {    @Query("SELECT * FROM recurring ORDER BY active DESC, merchant")
     fun observeAll(): Flow<List<RecurringExpense>>
 
     @Query("SELECT * FROM recurring ORDER BY active DESC, merchant")
@@ -370,4 +369,26 @@ interface RecurringDao {
 
     @Query("DELETE FROM recurring_charges")
     suspend fun clearCharges()
+}
+
+/** Acceso a los abonos recibidos por gastos compartidos. */
+@Dao
+interface SharedPaymentDao {
+    @Query("SELECT * FROM shared_payments ORDER BY date DESC, id DESC")
+    fun observeAll(): Flow<List<SharedPayment>>
+
+    @Query("SELECT * FROM shared_payments ORDER BY date DESC, id DESC")
+    suspend fun all(): List<SharedPayment>
+
+    @Insert
+    suspend fun insert(payment: SharedPayment): Long
+
+    @Insert
+    suspend fun insertAll(payments: List<SharedPayment>)
+
+    @Delete
+    suspend fun delete(payment: SharedPayment)
+
+    @Query("DELETE FROM shared_payments")
+    suspend fun clear()
 }

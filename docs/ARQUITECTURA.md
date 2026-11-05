@@ -66,6 +66,13 @@ ciclos ya se generaron: evita duplicados y que un cobro borrado reaparezca.
 `Backup` serializa todas las tablas a JSON (incluye IDs). `AutoBackup` guarda
 una copia diaria en `Descargas/Monny`. Restaurar reemplaza todo el contenido.
 
+### Gastos compartidos
+
+Cada `Expense` puede tener `sharedPercent`. La deuda global es la suma de
+`monto * porcentaje` menos los abonos registrados en `SharedPayment`. Al
+registrar un abono, el dinero entra al "en sobre" del ciclo (creando un `Cover`)
+o a un sobre (`EnvelopeTx`).
+
 ### Importador
 
 `CsvImport` detecta el formato (bloques por categoría o tabla plana), los

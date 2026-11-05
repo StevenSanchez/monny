@@ -26,8 +26,9 @@ App Android para llevar los gastos de tarjetas de crédito, el dinero apartado
   (opción por tarjeta, activada por defecto). Si cambiás el día de corte, los
   gastos, pagos y apartados se reubican en los ciclos nuevos.
 - **Gastos compartidos** (opcional, Ajustes): al registrar un gasto podés marcar
-  qué porcentaje le corresponde a otra persona; el inicio y los reportes muestran
-  cuánto te deben.
+  qué porcentaje le corresponde a otra persona. En Inicio ves cuánto te deben y
+  podés **registrar un abono** eligiendo si la plata va al "en sobre" del ciclo
+  o a uno de tus sobres.
 - **Gastos fijos**: seguros, suscripciones y cobros mensuales. Se crean solos en
   cada ciclo (también el próximo) mientras estén activos. Se administran en
   Ajustes → Gastos fijos.

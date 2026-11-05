@@ -15,6 +15,7 @@ import cr.monny.data.InstallmentPlan
 import cr.monny.data.MonnyRepository
 import cr.monny.data.Payment
 import cr.monny.data.RecurringExpense
+import cr.monny.data.SharedPayment
 import cr.monny.domain.CycleMath
 import cr.monny.domain.ImportedExpense
 import kotlinx.coroutines.flow.Flow
@@ -171,6 +172,9 @@ class MonnyViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val recurring: StateFlow<List<RecurringExpense>> = repo.recurring
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val sharedPayments: StateFlow<List<SharedPayment>> = repo.sharedPayments
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val plans: StateFlow<List<PlanRow>> = combine(
@@ -515,6 +519,27 @@ class MonnyViewModel(
         viewModelScope.launch {
             val ok = repo.withdrawCover(cardId, cycleKey.toEpochDay(), amountCents, note)
             notify(if (ok) "Retiro registrado" else "No hay suficiente en el sobre")
+            onResult(ok)
+        }
+    }
+
+    fun addSharedPayment(
+        cardId: Long,
+        cycleKey: LocalDate,
+        amountCents: Long,
+        envelopeId: Long?,
+        note: String,
+        onResult: (Boolean) -> Unit = {},
+    ) {
+        viewModelScope.launch {
+            val ok = repo.addSharedPayment(
+                cardId = cardId,
+                cycleKey = cycleKey.toEpochDay(),
+                amountCents = amountCents,
+                envelopeId = envelopeId,
+                note = note,
+            )
+            notify(if (ok) "Abono registrado" else "El monto supera lo que te deben")
             onResult(ok)
         }
     }

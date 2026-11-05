@@ -48,6 +48,7 @@ class MonnyRepository(private val db: MonnyDb) {
     val merchantHints: Flow<List<MerchantHint>> = db.expenses().observeMerchants()
     val plans: Flow<List<InstallmentPlan>> = db.plans().observeAll()
     val recurring: Flow<List<RecurringExpense>> = db.recurring().observeAll()
+    val sharedPayments: Flow<List<SharedPayment>> = db.sharedPayments().observeAll()
 
     fun observeCycle(cardId: Long, cycleKey: Long): Flow<CycleData> = combine(
         db.expenses().observeCycle(cardId, cycleKey),
@@ -560,6 +561,63 @@ class MonnyRepository(private val db: MonnyDb) {
         }
     }
 
+    // ---- Gastos compartidos ----
+
+    /**
+     * Registra un abono de la otra persona. El dinero se suma al "en sobre"
+     * del ciclo ([envelopeId] nulo) o al sobre indicado, y descuenta la deuda.
+     */
+    suspend fun addSharedPayment(
+        cardId: Long,
+        cycleKey: Long,
+        amountCents: Long,
+        envelopeId: Long?,
+        note: String = "",
+        date: LocalDate = LocalDate.now(),
+    ): Boolean {
+        if (amountCents <= 0) return false
+        val owed = db.expenses().all().sumOf { it.amountCents * it.sharedPercent / 100 }
+        val paid = db.sharedPayments().all().sumOf { it.amountCents }
+        if (amountCents > owed - paid) return false
+
+        return runCatching {
+            db.withTransaction {
+                if (envelopeId == null) {
+                    db.covers().insert(
+                        Cover(
+                            cardId = cardId,
+                            cycleKey = cycleKey,
+                            date = date.toEpochDay(),
+                            amountCents = amountCents,
+                            envelopeId = null,
+                            note = note.trim().ifBlank { "Abono compartido" },
+                        ),
+                    )
+                } else {
+                    db.envelopes().insertTx(
+                        EnvelopeTx(
+                            envelopeId = envelopeId,
+                            date = date.toEpochDay(),
+                            amountCents = amountCents,
+                            note = note.trim().ifBlank { "Abono compartido" },
+                            kind = "aporte",
+                        ),
+                    )
+                }
+                db.sharedPayments().insert(
+                    SharedPayment(
+                        date = date.toEpochDay(),
+                        amountCents = amountCents,
+                        envelopeId = envelopeId,
+                        cycleKey = cycleKey,
+                        note = note.trim(),
+                    ),
+                )
+            }
+            true
+        }.getOrDefault(false)
+    }
+
     // ---- Gastos fijos ----
 
     suspend fun saveRecurring(rule: RecurringExpense): Long {
@@ -656,6 +714,7 @@ class MonnyRepository(private val db: MonnyDb) {
             plans = db.plans().all(),
             recurring = db.recurring().all(),
             recurringCharges = db.recurring().allCharges(),
+            sharedPayments = db.sharedPayments().all(),
         ),
     )
 
@@ -704,6 +763,7 @@ class MonnyRepository(private val db: MonnyDb) {
             db.plans().clear()
             db.recurring().clearCharges()
             db.recurring().clear()
+            db.sharedPayments().clear()
             db.categories().clear()
             db.cards().clear()
 
@@ -713,6 +773,7 @@ class MonnyRepository(private val db: MonnyDb) {
             db.plans().insertAll(data.plans)
             db.recurring().insertAll(data.recurring)
             db.recurring().insertAllCharges(data.recurringCharges)
+            db.sharedPayments().insertAll(data.sharedPayments)
             db.expenses().insertAll(data.expenses)
             db.payments().insertAll(data.payments)
             db.covers().insertAll(data.covers)
@@ -731,6 +792,7 @@ class MonnyRepository(private val db: MonnyDb) {
             db.plans().clear()
             db.recurring().clearCharges()
             db.recurring().clear()
+            db.sharedPayments().clear()
             db.categories().clear()
             db.cards().clear()
         }

@@ -25,8 +25,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         InstallmentPlan::class,
         RecurringExpense::class,
         RecurringCharge::class,
+        SharedPayment::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = false,
 )
 abstract class MonnyDb : RoomDatabase() {
@@ -38,6 +39,7 @@ abstract class MonnyDb : RoomDatabase() {
     abstract fun envelopes(): EnvelopeDao
     abstract fun plans(): PlanDao
     abstract fun recurring(): RecurringDao
+    abstract fun sharedPayments(): SharedPaymentDao
 
     companion object {
         @Volatile
@@ -117,6 +119,22 @@ abstract class MonnyDb : RoomDatabase() {
             }
         }
 
+        /** v6 → v7: abonos de gastos compartidos. */
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `shared_payments` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`date` INTEGER NOT NULL, " +
+                        "`amountCents` INTEGER NOT NULL, " +
+                        "`envelopeId` INTEGER, " +
+                        "`cycleKey` INTEGER NOT NULL, " +
+                        "`note` TEXT NOT NULL, " +
+                        "`createdAt` INTEGER NOT NULL)",
+                )
+            }
+        }
+
         /** Instancia única (singleton) de la base de datos. */
         fun get(context: Context): MonnyDb = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(
@@ -124,7 +142,7 @@ abstract class MonnyDb : RoomDatabase() {
                 MonnyDb::class.java,
                 "monny.db",
             )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                 .build()
                 .also { instance = it }
         }

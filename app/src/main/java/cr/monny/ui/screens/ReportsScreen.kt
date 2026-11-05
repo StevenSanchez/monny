@@ -50,6 +50,8 @@ fun ReportsScreen(
     val expenses by vm.allExpenses.collectAsStateWithLifecycle()
     val categories by vm.categories.collectAsStateWithLifecycle()
     val sharedEnabled by vm.sharedEnabled.collectAsStateWithLifecycle()
+    val sharedPayments by vm.sharedPayments.collectAsStateWithLifecycle()
+    val allExpenses by vm.allExpenses.collectAsStateWithLifecycle()
 
     var period by remember { mutableStateOf(6) }
 
@@ -60,7 +62,8 @@ fun ReportsScreen(
     val total = rows.sumOf { it.totalCents }
     val average = if (rows.isEmpty()) 0L else total / rows.size
     val maximum = rows.maxOfOrNull { it.totalCents } ?: 0L
-    val sharedOwed = periodExpenses.sumOf { it.amountCents * it.sharedPercent / 100 }
+    val sharedOwed = allExpenses.sumOf { it.amountCents * it.sharedPercent / 100 } -
+        sharedPayments.sumOf { it.amountCents }
 
     val byCategory = remember(periodExpenses, categories) {
         periodExpenses.groupBy { it.categoryId }
