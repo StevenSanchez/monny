@@ -85,8 +85,9 @@ fun HomeScreen(
     val sharedEnabled by vm.sharedEnabled.collectAsStateWithLifecycle()
     val allExpenses by vm.allExpenses.collectAsStateWithLifecycle()
     val sharedPayments by vm.sharedPayments.collectAsStateWithLifecycle()
+    val pendingPayment by vm.pendingPayment.collectAsStateWithLifecycle()
     var showCover by remember { mutableStateOf(false) }
-    var showPayConfirm by remember { mutableStateOf(false) }
+    var payTarget by remember { mutableStateOf<LocalDate?>(null) }
     var showSharedPayment by remember { mutableStateOf(false) }
     val sharedOwed = allExpenses.sumOf { it.amountCents * it.sharedPercent / 100 }
     val sharedPaid = sharedPayments.sumOf { it.amountCents }
@@ -177,10 +178,54 @@ fun HomeScreen(
         item {
             HeroCard(
                 home = home,
-                onPay = { showPayConfirm = true },
+                onPay = { payTarget = pendingPayment?.cutKey ?: home.cutKey },
                 onCover = { showCover = true },
                 onHistory = onHistory,
             )
+        }
+
+        pendingPayment?.let { pending ->
+            item {
+                MonnyCard(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Rounded.Payments,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text("Pago pendiente", style = MaterialTheme.typography.bodyLarge)
+                                Text(
+                                    "Ciclo ${CycleMath.monthLabel(pending.startKey)} · vence " +
+                                        CycleMath.shortDate(pending.due),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            Text(
+                                "Falta ${Money.format(pending.remainingCents)}",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                        Spacer(Modifier.height(6.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                "Gastado ${Money.format(pending.totalCents)} · " +
+                                    "En sobre ${Money.format(pending.coveredCents)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Button(onClick = { payTarget = pending.cutKey }) {
+                                Text("Pagar")
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         if (sharedEnabled && sharedOwed > 0) {
@@ -330,32 +375,46 @@ fun HomeScreen(
         )
     }
 
-    if (showPayConfirm && home.card != null) {
-        val card = home.card!!
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { showPayConfirm = false },
-            title = { Text("¿Registrar el pago?") },
-            text = {
-                Text(
-                    "Vas a registrar el pago del ciclo de ${CycleMath.monthLabel(home.cutKey)}.\n\n" +
-                        "Gastado: ${Money.format(home.totalCents)}\n" +
-                        "En sobre: ${Money.format(home.coveredCents)}\n" +
-                        "Falta: ${Money.format(home.remainingCents)}\n\n" +
-                        "Después del pago vas a poder adjuntar el comprobante.",
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    showPayConfirm = false
-                    onPay(card.id, home.cutKey)
-                }) { Text("Sí, pagar") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showPayConfirm = false }) { Text("Todavía no") }
-            },
-            containerColor = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(28.dp),
-        )
+    payTarget?.let { target ->
+        val card = home.card
+        if (card != null) {
+            val pending = if (pendingPayment?.cutKey == target) pendingPayment else null
+            val label = if (pending != null) {
+                CycleMath.monthLabel(pending.startKey)
+            } else {
+                CycleMath.monthLabel(home.cycleStart)
+            }
+            val total = pending?.totalCents ?: home.totalCents
+            val covered = pending?.coveredCents ?: home.coveredCents
+            val paid = pending?.paidCents ?: home.paidCents
+            val remaining = pending?.remainingCents ?: home.remainingCents
+
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { payTarget = null },
+                title = { Text("¿Registrar el pago?") },
+                text = {
+                    Text(
+                        "Vas a registrar el pago del ciclo de $label.\n\n" +
+                            "Gastado: ${Money.format(total)}\n" +
+                            "En sobre: ${Money.format(covered)}\n" +
+                            "Pagado: ${Money.format(paid)}\n" +
+                            "Falta: ${Money.format(remaining)}\n\n" +
+                            "Después del pago vas a poder adjuntar el comprobante.",
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        payTarget = null
+                        onPay(card.id, target)
+                    }) { Text("Sí, pagar") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { payTarget = null }) { Text("Todavía no") }
+                },
+                containerColor = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(28.dp),
+            )
+        }
     }
 }
 

@@ -59,6 +59,7 @@ App Android para llevar los gastos de tarjetas de crédito, el dinero apartado
 - Sobres con saldo, aportes, retiros y traspaso al ciclo de una tarjeta.
 - Pagos con fecha y comprobante.
 - Historial de ciclos (con opción de eliminar un cierre completo).
+- **Pago pendiente** del último ciclo cerrado en Inicio, con su vencimiento y botón Pagar.
 - Borrar todos los datos desde Ajustes → Datos (con confirmación escribiendo BORRAR).
 - Recordatorios diarios (corte y vencimiento) con WorkManager.
 - Tema claro/oscuro/sistema.

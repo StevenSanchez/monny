@@ -116,12 +116,23 @@ data class EnvelopeRow(
 )
 
 /** Compra a tasa 0 con su progreso. */
-data class PlanRow(
-    val plan: InstallmentPlan,
+data class PlanRow(    val plan: InstallmentPlan,
     val charged: Int,
 ) {
     val remaining: Int get() = (plan.months - charged).coerceAtLeast(0)
     val currentInstallment: Int get() = (charged + 1).coerceAtMost(plan.months)
+}
+
+/** Ciclo ya cerrado que todavía tiene saldo por pagar. */
+data class PendingPayment(
+    val cutKey: LocalDate,
+    val startKey: LocalDate,
+    val due: LocalDate,
+    val totalCents: Long,
+    val paidCents: Long,
+    val coveredCents: Long,
+) {
+    val remainingCents: Long get() = totalCents - paidCents - coveredCents
 }
 
 /**
@@ -286,6 +297,28 @@ class MonnyViewModel(
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /**
+     * Último ciclo cerrado que sigue con saldo. Mientras exista, Inicio muestra
+     * "Pago pendiente" y el botón Pagar apunta a ese ciclo (no al nuevo).
+     */
+    val pendingPayment: StateFlow<PendingPayment?> = combine(selectedCard, _today, history) { card, today, rows ->
+        if (card == null) {
+            null
+        } else {
+            val last = CycleMath.lastCut(card.cutDay, today)
+            rows.firstOrNull { it.cutKey == last && it.remainingCents > 0 }?.let { row ->
+                PendingPayment(
+                    cutKey = row.cutKey,
+                    startKey = row.startKey,
+                    due = CycleMath.paymentDue(row.cutKey, card.paymentDueDays),
+                    totalCents = row.totalCents,
+                    paidCents = row.paidCents,
+                    coveredCents = row.coveredCents,
+                )
+            }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     init {
         // Mantiene una tarjeta seleccionada válida y genera los gastos fijos pendientes.
