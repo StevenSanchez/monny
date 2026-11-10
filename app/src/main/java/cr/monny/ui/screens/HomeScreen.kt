@@ -531,6 +531,7 @@ private fun HeroCard(
             Button(
                 onClick = onCover,
                 modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(horizontal = 8.dp),
                 colors = androidx.compose.material3.ButtonDefaults.buttonColors(
                     containerColor = Color.White,
                     contentColor = Green800,
@@ -538,11 +539,12 @@ private fun HeroCard(
             ) {
                 Icon(Icons.Rounded.Savings, contentDescription = null, modifier = Modifier.width(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Apartar")
+                Text("Apartar", maxLines = 1, softWrap = false)
             }
             FilledTonalButton(
                 onClick = onPay,
                 modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(horizontal = 8.dp),
                 colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
                     containerColor = Color.White.copy(alpha = 0.16f),
                     contentColor = Color.White,
@@ -550,7 +552,7 @@ private fun HeroCard(
             ) {
                 Icon(Icons.Rounded.Payments, contentDescription = null, modifier = Modifier.width(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Pagar")
+                Text("Pagar", maxLines = 1, softWrap = false)
             }
             FilledTonalButton(
                 onClick = onHistory,

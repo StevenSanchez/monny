@@ -55,6 +55,7 @@ import cr.monny.ui.components.MonnyCard
 import cr.monny.ui.components.MonnyTopBar
 import cr.monny.ui.components.MoneyField
 import cr.monny.ui.components.MoneyText
+import cr.monny.ui.components.Pill
 import cr.monny.ui.theme.LocalMonnyColors
 import java.time.Instant
 import java.time.LocalDate
@@ -119,11 +120,30 @@ fun CycleDetailScreen(
         item {
             MonnyCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(18.dp)) {
-                    Text(
-                        "GASTADO",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    val lastPayment = state.payments.maxOfOrNull { it.date }
+                    val statusText = when {
+                        state.remainingCents > 0 -> "Falta ${Money.format(state.remainingCents)}"
+                        state.paidCents > 0 && state.remainingCents <= 0 && lastPayment != null ->
+                            "Pagado el ${CycleMath.shortDate(LocalDate.ofEpochDay(lastPayment))}"
+                        else -> "Al día"
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            "GASTADO",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Pill(
+                            text = statusText,
+                            color = if (state.remainingCents > 0) extra.negative else extra.positive,
+                            background = if (state.remainingCents > 0) extra.negativeContainer
+                            else extra.positiveContainer,
+                        )
+                    }
                     Text(
                         Money.format(state.totalCents),
                         style = MaterialTheme.typography.headlineMedium,

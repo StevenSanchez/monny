@@ -307,15 +307,20 @@ class MonnyViewModel(
             null
         } else {
             val last = CycleMath.lastCut(card.cutDay, today)
-            rows.firstOrNull { it.cutKey == last && it.remainingCents > 0 }?.let { row ->
-                PendingPayment(
-                    cutKey = row.cutKey,
-                    startKey = row.startKey,
-                    due = CycleMath.paymentDue(row.cutKey, card.paymentDueDays),
-                    totalCents = row.totalCents,
-                    paidCents = row.paidCents,
-                    coveredCents = row.coveredCents,
-                )
+            // El estado de cuenta recién sale después del día de corte.
+            if (!today.isAfter(last)) {
+                null
+            } else {
+                rows.firstOrNull { it.cutKey == last && it.remainingCents > 0 }?.let { row ->
+                    PendingPayment(
+                        cutKey = row.cutKey,
+                        startKey = row.startKey,
+                        due = CycleMath.paymentDue(row.cutKey, card.paymentDueDays),
+                        totalCents = row.totalCents,
+                        paidCents = row.paidCents,
+                        coveredCents = row.coveredCents,
+                    )
+                }
             }
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)

@@ -108,6 +108,7 @@ private fun CycleHistoryCard(row: CycleRow, onClick: () -> Unit) {
                         Pill(
                             text = when {
                                 row.remainingCents > 0 -> "Faltan ${Money.format(row.remainingCents)}"
+                                row.paidCents > 0 && row.remainingCents == 0L -> "Pagado"
                                 row.remainingCents < 0 -> "A favor ${Money.format(-row.remainingCents)}"
                                 else -> "Al día"
                             },
