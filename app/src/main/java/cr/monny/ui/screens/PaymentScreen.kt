@@ -79,6 +79,7 @@ fun PaymentScreen(
     val context = LocalContext.current
     val cards by vm.cards.collectAsStateWithLifecycle()
     val detail by vm.cycleDetail.collectAsStateWithLifecycle()
+    val sharedPayments by vm.sharedPayments.collectAsStateWithLifecycle()
     val cycleKey = LocalDate.ofEpochDay(cycleKeyEpoch)
     val card = cards.firstOrNull { it.id == cardId }
 
@@ -113,6 +114,15 @@ fun PaymentScreen(
 
     val cents = Money.parse(amount) ?: 0L
     val statement = detail?.takeIf { it.card.id == cardId && it.cutKey == cycleKey }
+    val sharedDebt = statement?.let { s ->
+        (
+            s.expenses.sumOf { it.amountCents * it.sharedPercent / 100 } -
+                sharedPayments
+                    .filter { it.cycleKey == s.cutKey.toEpochDay() }
+                    .sumOf { it.amountCents }
+            ).coerceAtLeast(0)
+    } ?: 0L
+    val myPart = (statement?.remainingCents ?: 0L) - sharedDebt
     val isOpenCycle = card != null && cycleKey.isAfter(CycleMath.lastCut(card.cutDay, LocalDate.now()))
     val remainingBefore = statement?.remainingCents ?: 0L
     val afterThisPayment = statement?.let { it.remainingCents - cents } ?: 0L
@@ -205,6 +215,24 @@ fun PaymentScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        if (sharedDebt > 0) {
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                when {
+                                    myPart > 0 ->
+                                        "Te deben ${Money.format(sharedDebt)} de este ciclo. " +
+                                            "Tu parte del faltante: ${Money.format(myPart)}."
+                                    myPart == 0L ->
+                                        "Te deben ${Money.format(sharedDebt)}. Tu parte del " +
+                                            "faltante ya está cubierta."
+                                    else ->
+                                        "Te deben ${Money.format(sharedDebt)}. Tu parte ya está " +
+                                            "cubierta y quedan ${Money.format(-myPart)} a favor."
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.secondary,
+                            )
+                        }
                         if (isOpenCycle) {
                             Spacer(Modifier.height(10.dp))
                             Surface(

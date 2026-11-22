@@ -49,6 +49,10 @@ App Android para llevar los gastos de tarjetas de crédito, el dinero apartado
   Se puede **guardar** o **retirar** (para emergencias) y después reponer.
 - **Falta / A favor**: `gastado − pagado − en sobre`. Positivo = debés,
   negativo = te sobra.
+- **Tu parte del faltante**: cuando hay gastos compartidos pendientes, Inicio y
+  la pantalla de pago muestran cuánto te toca poner **descontando lo que te
+  deben**. Así no tenés que restarlo a mano: el "Falta" sigue siendo el total de
+  la tarjeta y "Tu parte" es lo tuyo.
 - **Sobre**: bolsa de ahorro con saldo propio (tipo BCR). Se le puede aportar,
   retirar o pasar plata al ciclo de una tarjeta.
 - **Pago**: abono a la tarjeta, opcional, con fecha y foto del comprobante.
@@ -63,6 +67,7 @@ App Android para llevar los gastos de tarjetas de crédito, el dinero apartado
 - Ciclos calculados automáticamente; nunca hay que crear un "mes".
 - Gastos con monto, categoría, motivo, nota, fecha y comprobante.
 - Gastos compartidos con porcentaje por persona y cuenta que se reinicia en cada corte.
+- **Tu parte del faltante** ya con lo compartido descontado.
 - "No sumar hasta el corte" en gastos, tasa 0 y gastos fijos.
 - Presupuesto por categoría (opcional, por ciclo) con avance y aviso de "te pasaste".
 - Subtotal por categoría, total del ciclo y panorama "en sobre".

@@ -109,6 +109,8 @@ fun HomeScreen(
         .filter { it.cycleKey == currentCycleKey }
         .sumOf { it.amountCents }
     val sharedDebt = (sharedOwed - sharedPaid).coerceAtLeast(0)
+    // Lo que realmente te toca poner: al faltante le restamos lo que te deben.
+    val myRemaining = home.remainingCents - sharedDebt
 
     if (!ready) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -209,6 +211,8 @@ fun HomeScreen(
         item {
             HeroCard(
                 home = home,
+                sharedDebt = sharedDebt,
+                myRemaining = myRemaining,
                 onPay = {
                     home.card?.let { card ->
                         onPay(card.id, pendingPayment?.cutKey ?: home.cutKey)
@@ -431,6 +435,8 @@ fun HomeScreen(
 @Composable
 private fun HeroCard(
     home: cr.monny.ui.HomeState,
+    sharedDebt: Long,
+    myRemaining: Long,
     onPay: () -> Unit,
     onCover: () -> Unit,
     onHistory: () -> Unit,
@@ -566,6 +572,36 @@ private fun HeroCard(
                     Modifier.weight(1f),
                     Alignment.End,
                 )
+            }
+
+            if (sharedDebt > 0) {
+                Spacer(Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color.White.copy(alpha = 0.10f))
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            if (myRemaining >= 0) "TU PARTE DEL FALTANTE" else "A FAVOR TUYO",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = gold,
+                        )
+                        Text(
+                            "descontando ${Money.format(sharedDebt)} que te deben",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.6f),
+                        )
+                    }
+                    Text(
+                        Money.format(kotlin.math.abs(myRemaining)),
+                        style = MaterialTheme.typography.titleLarge,
+                        color = if (myRemaining >= 0) Color.White else Green300,
+                    )
+                }
             }
 
             Spacer(Modifier.height(16.dp))

@@ -75,6 +75,10 @@ así no se arrastran redondeos de meses anteriores. Al registrar un abono, el
 dinero entra al "en sobre" del ciclo (creando un `Cover`) o a un sobre
 (`EnvelopeTx`).
 
+Para no restarlo a mano, Inicio y el pago muestran **tu parte**:
+`tuParte = remainingCents − sharedDebt`. El "falta" sigue siendo el saldo real
+de la tarjeta; "tu parte" es lo que te corresponde después de lo que te deben.
+
 ### "No sumar hasta el corte"
 
 `Expense.excludeUntilCut` (y sus equivalentes en `InstallmentPlan` y
