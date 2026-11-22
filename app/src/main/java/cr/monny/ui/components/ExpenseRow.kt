@@ -85,6 +85,9 @@ fun ExpenseRow(
                         if (expense.recurringId != null) {
                             append(" · Fijo")
                         }
+                        if (expense.excludeUntilCut) {
+                            append(" · No suma hasta el corte")
+                        }
                         if (showDate) {
                             append(" · ")
                             append(CycleMath.shortDate(LocalDate.ofEpochDay(expense.date)))

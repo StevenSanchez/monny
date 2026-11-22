@@ -82,6 +82,12 @@ data class Expense(
     val sharedPercent: Int = 0,
     /** Si viene de un gasto fijo mensual. */
     val recurringId: Long? = null,
+    /**
+     * No cuenta en el total del ciclo hasta que llegue el corte.
+     * Útil para compras de otras personas que pagan después.
+     */
+    @androidx.room.ColumnInfo(defaultValue = "0")
+    val excludeUntilCut: Boolean = false,
 )
 
 /** Pago (abono) a la tarjeta para un ciclo. */
@@ -161,6 +167,12 @@ data class InstallmentPlan(
     val firstDate: Long,
     val note: String = "",
     val createdAt: Long = System.currentTimeMillis(),
+    /** Porcentaje compartido que se aplica a cada cuota. */
+    @androidx.room.ColumnInfo(defaultValue = "0")
+    val sharedPercent: Int = 0,
+    /** Si las cuotas no suman al ciclo abierto hasta el corte. */
+    @androidx.room.ColumnInfo(defaultValue = "0")
+    val excludeUntilCut: Boolean = false,
 )
 
 /** Gasto fijo mensual (seguro, suscripción, etc.). */
@@ -176,6 +188,9 @@ data class RecurringExpense(
     val note: String = "",
     val active: Boolean = true,
     val sharedPercent: Int = 0,
+    /** Si los cobros no suman al ciclo abierto hasta el corte. */
+    @androidx.room.ColumnInfo(defaultValue = "0")
+    val excludeUntilCut: Boolean = false,
     val createdAt: Long = System.currentTimeMillis(),
 )
 

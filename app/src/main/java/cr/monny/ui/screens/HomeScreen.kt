@@ -1,16 +1,23 @@
 package cr.monny.ui.screens
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -27,10 +34,10 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -43,11 +50,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cr.monny.data.Envelope
 import cr.monny.domain.CycleMath
@@ -60,10 +71,12 @@ import cr.monny.ui.components.MonnyCard
 import cr.monny.ui.components.MoneyField
 import cr.monny.ui.components.Pill
 import cr.monny.ui.components.SectionHeader
-import cr.monny.ui.theme.Amber500
+import cr.monny.ui.sheets.SharedPaymentSheet
+import cr.monny.ui.theme.GoldSoft
 import cr.monny.ui.theme.Green300
-import cr.monny.ui.theme.Green600
+import cr.monny.ui.theme.Green700
 import cr.monny.ui.theme.Green800
+import cr.monny.ui.theme.Green900
 import cr.monny.ui.theme.LocalMonnyColors
 import java.time.LocalDate
 
@@ -78,20 +91,24 @@ fun HomeScreen(
     onPay: (Long, LocalDate) -> Unit,
     onAddEnvelope: () -> Unit,
     onImport: () -> Unit,
+    onShared: () -> Unit,
+    onEditExpense: (cr.monny.data.Expense) -> Unit,
 ) {
     val home by vm.home.collectAsStateWithLifecycle()
     val cards by vm.cards.collectAsStateWithLifecycle()
     val ready by vm.ready.collectAsStateWithLifecycle()
     val sharedEnabled by vm.sharedEnabled.collectAsStateWithLifecycle()
-    val allExpenses by vm.allExpenses.collectAsStateWithLifecycle()
     val sharedPayments by vm.sharedPayments.collectAsStateWithLifecycle()
     val pendingPayment by vm.pendingPayment.collectAsStateWithLifecycle()
     var showCover by remember { mutableStateOf(false) }
-    var payTarget by remember { mutableStateOf<LocalDate?>(null) }
     var showSharedPayment by remember { mutableStateOf(false) }
-    val sharedOwed = allExpenses.sumOf { it.amountCents * it.sharedPercent / 100 }
-    val sharedPaid = sharedPayments.sumOf { it.amountCents }
-    val sharedDebt = sharedOwed - sharedPaid
+    // Lo compartido se reinicia en cada corte: solo cuenta el ciclo abierto.
+    val currentCycleKey = home.cutKey.toEpochDay()
+    val sharedOwed = home.expenses.sumOf { it.amountCents * it.sharedPercent / 100 }
+    val sharedPaid = sharedPayments
+        .filter { it.cycleKey == currentCycleKey }
+        .sumOf { it.amountCents }
+    val sharedDebt = (sharedOwed - sharedPaid).coerceAtLeast(0)
 
     if (!ready) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -136,15 +153,25 @@ fun HomeScreen(
     ) {
         item {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 6.dp),
+                verticalAlignment = Alignment.Bottom,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Column {
-                    Text("Monny", style = MaterialTheme.typography.headlineMedium)
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "MONNY",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = LocalMonnyColors.current.gold,
+                    )
                     Text(
                         CycleMath.monthLabel(home.cycleStart),
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.headlineMedium,
+                    )
+                    Text(
+                        "Tu ciclo actual",
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -154,7 +181,11 @@ fun HomeScreen(
                         onClick = onManageCards,
                         label = { Text(home.card?.name ?: "") },
                         leadingIcon = {
-                            Icon(Icons.Rounded.CreditCard, contentDescription = null, modifier = Modifier.width(18.dp))
+                            Icon(
+                                Icons.Rounded.CreditCard,
+                                contentDescription = null,
+                                modifier = Modifier.width(18.dp),
+                            )
                         },
                     )
                 }
@@ -178,7 +209,11 @@ fun HomeScreen(
         item {
             HeroCard(
                 home = home,
-                onPay = { payTarget = pendingPayment?.cutKey ?: home.cutKey },
+                onPay = {
+                    home.card?.let { card ->
+                        onPay(card.id, pendingPayment?.cutKey ?: home.cutKey)
+                    }
+                },
                 onCover = { showCover = true },
                 onHistory = onHistory,
             )
@@ -219,7 +254,11 @@ fun HomeScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.weight(1f),
                             )
-                            Button(onClick = { payTarget = pending.cutKey }) {
+                            Button(
+                                onClick = {
+                                    home.card?.let { card -> onPay(card.id, pending.cutKey) }
+                                },
+                            ) {
                                 Text("Pagar")
                             }
                         }
@@ -230,7 +269,11 @@ fun HomeScreen(
 
         if (sharedEnabled && sharedOwed > 0) {
             item {
-                MonnyCard(Modifier.fillMaxWidth()) {
+                MonnyCard(
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable { onShared() },
+                ) {
                     Column(Modifier.padding(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
@@ -252,10 +295,18 @@ fun HomeScreen(
                                 style = MaterialTheme.typography.titleMedium,
                             )
                         }
-                        if (sharedDebt > 0) {
-                            TextButton(onClick = { showSharedPayment = true }) {
-                                Text("Registrar abono")
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (sharedDebt > 0) {
+                                TextButton(onClick = { showSharedPayment = true }) {
+                                    Text("Registrar abono")
+                                }
                             }
+                            Spacer(Modifier.weight(1f))
+                            Text(
+                                "Ver compras",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
                         }
                     }
                 }
@@ -296,7 +347,7 @@ fun HomeScreen(
                             ExpenseRow(
                                 expense = expense,
                                 category = home.categoryOf(expense.categoryId),
-                                onClick = onSeeAll,
+                                onClick = { onEditExpense(expense) },
                             )
                         }
                     }
@@ -374,48 +425,6 @@ fun HomeScreen(
             onDismiss = { showSharedPayment = false },
         )
     }
-
-    payTarget?.let { target ->
-        val card = home.card
-        if (card != null) {
-            val pending = if (pendingPayment?.cutKey == target) pendingPayment else null
-            val label = if (pending != null) {
-                CycleMath.monthLabel(pending.startKey)
-            } else {
-                CycleMath.monthLabel(home.cycleStart)
-            }
-            val total = pending?.totalCents ?: home.totalCents
-            val covered = pending?.coveredCents ?: home.coveredCents
-            val paid = pending?.paidCents ?: home.paidCents
-            val remaining = pending?.remainingCents ?: home.remainingCents
-
-            androidx.compose.material3.AlertDialog(
-                onDismissRequest = { payTarget = null },
-                title = { Text("¿Registrar el pago?") },
-                text = {
-                    Text(
-                        "Vas a registrar el pago del ciclo de $label.\n\n" +
-                            "Gastado: ${Money.format(total)}\n" +
-                            "En sobre: ${Money.format(covered)}\n" +
-                            "Pagado: ${Money.format(paid)}\n" +
-                            "Falta: ${Money.format(remaining)}\n\n" +
-                            "Después del pago vas a poder adjuntar el comprobante.",
-                    )
-                },
-                confirmButton = {
-                    TextButton(onClick = {
-                        payTarget = null
-                        onPay(card.id, target)
-                    }) { Text("Sí, pagar") }
-                },
-                dismissButton = {
-                    TextButton(onClick = { payTarget = null }) { Text("Todavía no") }
-                },
-                containerColor = MaterialTheme.colorScheme.surface,
-                shape = RoundedCornerShape(28.dp),
-            )
-        }
-    }
 }
 
 /** Tarjeta grande con el resumen del ciclo y las acciones principales. */
@@ -426,8 +435,10 @@ private fun HeroCard(
     onCover: () -> Unit,
     onHistory: () -> Unit,
 ) {
-    val statusColor = when {        home.totalCents == 0L -> Color.White.copy(alpha = 0.9f)
-        home.remainingCents > 0 -> Amber500
+    val gold = LocalMonnyColors.current.gold
+    val statusColor = when {
+        home.totalCents == 0L -> Color.White.copy(alpha = 0.9f)
+        home.remainingCents > 0 -> gold
         else -> Green300
     }
     val statusText = when {
@@ -436,249 +447,275 @@ private fun HeroCard(
         home.remainingCents < 0 -> "A favor ${Money.format(-home.remainingCents)}"
         else -> "Al día"
     }
+    val progress by animateFloatAsState(
+        targetValue = home.progress.coerceIn(0f, 1f),
+        animationSpec = tween(durationMillis = 900, easing = FastOutSlowInEasing),
+        label = "heroProgress",
+    )
+    val cutLabel = if (home.daysToCut == 0L) "hoy" else "en ${home.daysToCut} días"
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(28.dp))
-            .background(Brush.linearGradient(listOf(Green800, Green600)))
-            .padding(20.dp),
+            .shadow(16.dp, RoundedCornerShape(30.dp), ambientColor = Green900, spotColor = Green900)
+            .clip(RoundedCornerShape(30.dp))
+            .background(Brush.linearGradient(listOf(Green900, Green800, Green700)))
+            .drawBehind {
+                // Halo dorado en la esquina superior derecha.
+                val radius = size.width * 0.9f
+                val center = Offset(size.width * 0.95f, 0f)
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(gold.copy(alpha = 0.14f), Color.Transparent),
+                        center = center,
+                        radius = radius,
+                    ),
+                    radius = radius,
+                    center = center,
+                )
+            },
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                "EN SOBRE",
-                style = MaterialTheme.typography.labelMedium,
-                color = Color.White.copy(alpha = 0.7f),
-            )
-            Pill(
-                text = statusText,
-                color = Color.White,
-                background = statusColor.copy(alpha = 0.22f),
-            )
-        }
-        Spacer(Modifier.height(8.dp))
-        Text(
-            Money.format(home.coveredCents),
-            style = MaterialTheme.typography.displaySmall,
-            color = Color.White,
-        )
-        Text(
-            "para pagar ${Money.format(home.totalCents)} del ciclo",
-            style = MaterialTheme.typography.bodyMedium,
-            color = Color.White.copy(alpha = 0.72f),
-        )
-
-        Spacer(Modifier.height(16.dp))
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(8.dp)
-                .background(Color.White.copy(alpha = 0.18f), CircleShape),
-        ) {
+                .height(1.dp)
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(
+                            Color.Transparent,
+                            gold.copy(alpha = 0.55f),
+                            Color.Transparent,
+                        ),
+                    ),
+                ),
+        )
+
+        Column(Modifier.padding(horizontal = 22.dp, vertical = 20.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        Modifier
+                            .size(6.dp)
+                            .background(gold, CircleShape),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "EN SOBRE · ${CycleMath.monthLabel(home.cycleStart).uppercase()}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = gold,
+                    )
+                }
+                Pill(
+                    text = statusText,
+                    color = Color.White,
+                    background = statusColor.copy(alpha = 0.18f),
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+            Text(
+                Money.format(home.coveredCents),
+                style = MaterialTheme.typography.displaySmall,
+                color = Color.White,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                "guardado para pagar ${Money.format(home.totalCents)} del ciclo",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White.copy(alpha = 0.72f),
+            )
+
+            Spacer(Modifier.height(18.dp))
             Box(
                 modifier = Modifier
-                    .fillMaxWidth(home.progress)
-                    .height(8.dp)
-                    .background(Amber500, CircleShape),
-            )
-        }
+                    .fillMaxWidth()
+                    .height(9.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.14f)),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(progress)
+                        .fillMaxHeight()
+                        .background(
+                            Brush.horizontalGradient(listOf(gold.copy(alpha = 0.8f), GoldSoft)),
+                            CircleShape,
+                        ),
+                )
+            }
 
-        Spacer(Modifier.height(16.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            HeroStat("Gastado", home.totalCents, Color.White)
-            HeroStat("Pagado", home.paidCents, Color.White)
-            HeroStat(
-                if (home.remainingCents >= 0) "Falta" else "A favor",
-                kotlin.math.abs(home.remainingCents),
-                if (home.remainingCents > 0) Amber500 else Green300,
-            )
-        }
+            Spacer(Modifier.height(18.dp))
+            Row(Modifier.fillMaxWidth()) {
+                HeroStat("Gastado", home.totalCents, Color.White, Modifier.weight(1f))
+                HeroStat(
+                    "Pagado",
+                    home.paidCents,
+                    Color.White.copy(alpha = 0.85f),
+                    Modifier.weight(1f),
+                    Alignment.CenterHorizontally,
+                )
+                HeroStat(
+                    if (home.remainingCents >= 0) "Falta" else "A favor",
+                    kotlin.math.abs(home.remainingCents),
+                    if (home.remainingCents > 0) gold else Green300,
+                    Modifier.weight(1f),
+                    Alignment.End,
+                )
+            }
 
-        Spacer(Modifier.height(14.dp))
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .height(1.dp)
-                .background(Color.White.copy(alpha = 0.15f)),
-        )
-        Spacer(Modifier.height(12.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column {
-                Text(
+            Spacer(Modifier.height(16.dp))
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(Color.White.copy(alpha = 0.14f)),
+            )
+            Spacer(Modifier.height(14.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                HeroMeta(
+                    "CICLO",
                     "${CycleMath.shortDate(home.cycleStart)} – ${CycleMath.shortDate(home.cycleEnd)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.8f),
+                    Modifier.weight(1f),
                 )
-                Text(
-                    "Corte ${if (home.daysToCut == 0L) "hoy" else "en ${home.daysToCut} días"} · " +
-                        "Pago ${CycleMath.shortDate(home.paymentDue)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.6f),
+                HeroMeta("CORTE", cutLabel, Modifier.weight(0.7f), Alignment.CenterHorizontally)
+                HeroMeta(
+                    "PAGO",
+                    CycleMath.shortDate(home.paymentDue),
+                    Modifier.weight(0.7f),
+                    Alignment.End,
                 )
             }
-        }
 
-        Spacer(Modifier.height(16.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
-                onClick = onCover,
-                modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(horizontal = 8.dp),
-                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                    containerColor = Color.White,
-                    contentColor = Green800,
-                ),
-            ) {
-                Icon(Icons.Rounded.Savings, contentDescription = null, modifier = Modifier.width(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("Apartar", maxLines = 1, softWrap = false)
+            Spacer(Modifier.height(20.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(
+                    onClick = onCover,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
+                    shape = RoundedCornerShape(50),
+                    contentPadding = PaddingValues(horizontal = 10.dp),
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                        containerColor = Color.White,
+                        contentColor = Green800,
+                    ),
+                ) {
+                    Icon(
+                        Icons.Rounded.Savings,
+                        contentDescription = null,
+                        modifier = Modifier.size(17.dp),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        "Guardar en sobre",
+                        style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp),
+                        maxLines = 1,
+                        softWrap = false,
+                    )
+                }
+                Button(
+                    onClick = onPay,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
+                    shape = RoundedCornerShape(50),
+                    contentPadding = PaddingValues(horizontal = 10.dp),
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                        containerColor = gold,
+                        contentColor = Green900,
+                    ),
+                ) {
+                    Icon(
+                        Icons.Rounded.Payments,
+                        contentDescription = null,
+                        modifier = Modifier.size(17.dp),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text("Pagar", style = MaterialTheme.typography.labelLarge)
+                }
             }
-            FilledTonalButton(
-                onClick = onPay,
-                modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(horizontal = 8.dp),
-                colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
-                    containerColor = Color.White.copy(alpha = 0.16f),
-                    contentColor = Color.White,
-                ),
-            ) {
-                Icon(Icons.Rounded.Payments, contentDescription = null, modifier = Modifier.width(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("Pagar", maxLines = 1, softWrap = false)
-            }
-            FilledTonalButton(
+
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
                 onClick = onHistory,
-                colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
-                    containerColor = Color.White.copy(alpha = 0.16f),
-                    contentColor = Color.White,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp),
+                shape = RoundedCornerShape(50),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f)),
+                colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                    contentColor = Color.White.copy(alpha = 0.9f),
                 ),
             ) {
-                Icon(Icons.Rounded.History, contentDescription = null, modifier = Modifier.width(18.dp))
+                Icon(
+                    Icons.Rounded.History,
+                    contentDescription = null,
+                    modifier = Modifier.size(17.dp),
+                )
+                Spacer(Modifier.width(6.dp))
+                Text("Ver historial", style = MaterialTheme.typography.labelLarge)
             }
         }
     }
 }
 
 @Composable
-private fun HeroStat(label: String, cents: Long, color: Color) {
-    Column {
+private fun HeroStat(
+    label: String,
+    cents: Long,
+    color: Color,
+    modifier: Modifier = Modifier,
+    horizontalAlignment: Alignment.Horizontal = Alignment.Start,
+) {
+    Column(modifier = modifier, horizontalAlignment = horizontalAlignment) {
         Text(
-            label,
-            style = MaterialTheme.typography.labelMedium,
-            color = Color.White.copy(alpha = 0.65f),
+            label.uppercase(),
+            style = MaterialTheme.typography.labelSmall,
+            color = Color.White.copy(alpha = 0.55f),
         )
+        Spacer(Modifier.height(2.dp))
         Text(
             Money.format(cents),
             style = MaterialTheme.typography.titleMedium,
             color = color,
             fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SharedPaymentSheet(
-    vm: MonnyViewModel,
-    cardId: Long,
-    cycleKey: LocalDate,
-    debtCents: Long,
-    onDismiss: () -> Unit,
+private fun HeroMeta(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    horizontalAlignment: Alignment.Horizontal = Alignment.Start,
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val envelopes by vm.envelopes.collectAsStateWithLifecycle()
-    var amount by remember { mutableStateOf("") }
-    var note by remember { mutableStateOf("") }
-    var envelopeId by remember { mutableStateOf<Long?>(null) }
-    val value = Money.parse(amount) ?: 0L
-
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 32.dp),
-        ) {
-            Text("Registrar abono", style = MaterialTheme.typography.headlineSmall)
-            Text(
-                "Te deben ${Money.format(debtCents)}. El monto se descuenta de esa deuda " +
-                    "y se suma al destino que elijas.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(16.dp))
-            MoneyField(value = amount, onValueChange = { amount = it }, label = "Monto recibido")
-
-            Spacer(Modifier.height(16.dp))
-            Text("¿A dónde va la plata?", style = MaterialTheme.typography.labelLarge)
-            Spacer(Modifier.height(8.dp))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                item {
-                    FilterChip(
-                        selected = envelopeId == null,
-                        onClick = { envelopeId = null },
-                        label = { Text("En sobre") },
-                    )
-                }
-                items(envelopes, key = { it.envelope.id }) { row ->
-                    FilterChip(
-                        selected = envelopeId == row.envelope.id,
-                        onClick = { envelopeId = row.envelope.id },
-                        label = { Text(row.envelope.name) },
-                    )
-                }
-            }
-            Text(
-                if (envelopeId == null) {
-                    "Se suma al apartado del ciclo actual."
-                } else {
-                    "Se suma al saldo del sobre " +
-                        (envelopes.firstOrNull { it.envelope.id == envelopeId }?.envelope?.name ?: "") + "."
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            Spacer(Modifier.height(12.dp))
-            OutlinedTextField(
-                value = note,
-                onValueChange = { note = it },
-                label = { Text("Nota (opcional)") },
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            Spacer(Modifier.height(20.dp))
-            Button(
-                enabled = value in 1..debtCents,
-                onClick = {
-                    val parsed = Money.parse(amount) ?: return@Button
-                    vm.addSharedPayment(
-                        cardId = cardId,
-                        cycleKey = cycleKey,
-                        amountCents = parsed,
-                        envelopeId = envelopeId,
-                        note = note,
-                    ) { ok -> if (ok) onDismiss() }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-            ) {
-                Text(
-                    if (value > 0) "Registrar ${Money.format(value)}" else "Registrar abono",
-                )
-            }
-        }
+    Column(modifier = modifier, horizontalAlignment = horizontalAlignment) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = Color.White.copy(alpha = 0.5f),
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            value,
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.9f),
+        )
     }
 }
+
 
 /** Hoja para apartar o retirar dinero del "en sobre" del ciclo. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -706,13 +743,13 @@ private fun CoverSheet(
                 .padding(bottom = 32.dp),
         ) {
             Text(
-                if (withdraw) "Retirar del sobre" else "Apartar dinero",
+                if (withdraw) "Retirar del sobre" else "Guardar en sobre",
                 style = MaterialTheme.typography.headlineSmall,
             )
             Text(
                 if (withdraw) {
                     "Este monto se descuenta de tu \"en sobre\" del ciclo que cierra el " +
-                        "${CycleMath.shortDate(cycleKey)}. Después lo podés reponer con Apartar."
+                        "${CycleMath.shortDate(cycleKey)}. Después lo podés reponer con Guardar en sobre."
                 } else {
                     "Este monto se suma a tu \"en sobre\" del ciclo que cierra el " +
                         "${CycleMath.shortDate(cycleKey)}."
@@ -726,7 +763,7 @@ private fun CoverSheet(
                 FilterChip(
                     selected = !withdraw,
                     onClick = { withdraw = false },
-                    label = { Text("Apartar") },
+                    label = { Text("Guardar") },
                 )
                 FilterChip(
                     selected = withdraw,
@@ -740,7 +777,7 @@ private fun CoverSheet(
             MoneyField(
                 value = amount,
                 onValueChange = { amount = it },
-                label = if (withdraw) "Monto a retirar" else "Monto a apartar",
+                label = if (withdraw) "Monto a retirar" else "Monto a guardar",
             )
             if (withdraw) {
                 Spacer(Modifier.height(4.dp))
@@ -814,9 +851,9 @@ private fun CoverSheet(
             ) {
                 Text(
                     when {
-                        value <= 0L -> if (withdraw) "Retirar" else "Apartar"
+                        value <= 0L -> if (withdraw) "Retirar" else "Guardar en sobre"
                         withdraw -> "Retirar ${Money.format(value)}"
-                        else -> "Apartar ${Money.format(value)}"
+                        else -> "Guardar ${Money.format(value)}"
                     },
                 )
             }

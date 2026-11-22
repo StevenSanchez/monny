@@ -68,10 +68,19 @@ una copia diaria en `Descargas/Monny`. Restaurar reemplaza todo el contenido.
 
 ### Gastos compartidos
 
-Cada `Expense` puede tener `sharedPercent`. La deuda global es la suma de
-`monto * porcentaje` menos los abonos registrados en `SharedPayment`. Al
-registrar un abono, el dinero entra al "en sobre" del ciclo (creando un `Cover`)
-o a un sobre (`EnvelopeTx`).
+Cada `Expense` puede tener `sharedPercent`. La deuda **se calcula por ciclo**:
+suma de `monto * porcentaje` de los gastos con el `cycleKey` abierto, menos los
+`SharedPayment` de ese mismo ciclo. Al pasar el corte la cuenta empieza de cero,
+así no se arrastran redondeos de meses anteriores. Al registrar un abono, el
+dinero entra al "en sobre" del ciclo (creando un `Cover`) o a un sobre
+(`EnvelopeTx`).
+
+### "No sumar hasta el corte"
+
+`Expense.excludeUntilCut` (y sus equivalentes en `InstallmentPlan` y
+`RecurringExpense`) marcan movimientos que no entran al total mientras el ciclo
+siga abierto. En ciclos cerrados sí cuentan, porque el estado de cuenta ya salió.
+La bandera se puede cambiar al crear o editar.
 
 ### Importador
 

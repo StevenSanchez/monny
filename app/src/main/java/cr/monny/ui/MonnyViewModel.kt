@@ -105,6 +105,8 @@ data class CycleDetailState(
     val categories: List<Category>,
     val payments: List<Payment>,
     val covers: List<Cover>,
+    /** true si el ciclo todavía no cerró (los gastos "no sumar" quedan fuera). */
+    val openCycle: Boolean = false,
 ) {
     val remainingCents: Long get() = totalCents - paidCents - coveredCents
 }
@@ -245,15 +247,21 @@ class MonnyViewModel(
                     cards,
                 ) { expenses, payments, covers, cardList ->
                     val cutDay = cardList.firstOrNull { it.id == id }?.cutDay ?: 1
+                    val currentCut = CycleMath.cycleKeyFor(LocalDate.now(), cutDay).toEpochDay()
                     val paid = payments.groupBy { it.cycleKey }.mapValues { e -> e.value.sumOf { it.amountCents } }
                     val covered = covers.groupBy { it.cycleKey }.mapValues { e -> e.value.sumOf { it.amountCents } }
                     expenses.groupBy { it.cycleKey }
                         .map { (key, list) ->
                             val cutKey = LocalDate.ofEpochDay(key)
+                            val counted = if (key == currentCut) {
+                                list.filterNot { it.excludeUntilCut }
+                            } else {
+                                list
+                            }
                             CycleRow(
                                 cutKey = cutKey,
                                 startKey = CycleMath.cycleStart(cutKey, cutDay),
-                                totalCents = list.sumOf { it.amountCents },
+                                totalCents = counted.sumOf { it.amountCents },
                                 paidCents = paid[key] ?: 0L,
                                 coveredCents = covered[key] ?: 0L,
                                 count = list.size,
@@ -279,19 +287,22 @@ class MonnyViewModel(
                 ) { data, cards, cats ->
                     val card = cards.firstOrNull { it.id == target.first } ?: return@combine null
                     val key = LocalDate.ofEpochDay(target.second)
+                    val open = CycleMath.cycleKeyFor(LocalDate.now(), card.cutDay) == key
+                    val counted = if (open) data.expenses.filterNot { it.excludeUntilCut } else data.expenses
                     CycleDetailState(
                         card = card,
                         cutKey = key,
                         start = CycleMath.cycleStart(key, card.cutDay),
                         end = key,
                         due = CycleMath.paymentDue(key, card.paymentDueDays),
-                        totalCents = data.expenses.sumOf { it.amountCents },
+                        totalCents = counted.sumOf { it.amountCents },
                         paidCents = data.payments.sumOf { it.amountCents },
                         coveredCents = data.covers.sumOf { it.amountCents },
                         expenses = data.expenses,
                         categories = cats,
                         payments = data.payments,
                         covers = data.covers,
+                        openCycle = open,
                     )
                 }
             }
@@ -346,7 +357,9 @@ class MonnyViewModel(
         cats: List<Category>,
         data: CycleData,
     ): HomeState {
-        val totals = data.expenses.groupBy { it.categoryId }
+        // Los gastos marcados "no sumar hasta el corte" no entran en el total del ciclo abierto.
+        val counted = data.expenses.filterNot { it.excludeUntilCut }
+        val totals = counted.groupBy { it.categoryId }
             .map { (categoryId, list) ->
                 CategoryTotal(
                     category = cats.firstOrNull { it.id == categoryId }
@@ -366,7 +379,7 @@ class MonnyViewModel(
             paymentDue = CycleMath.paymentDue(key, card.paymentDueDays),
             daysToCut = CycleMath.daysToCut(card.cutDay, today),
             categories = cats,
-            totalCents = data.expenses.sumOf { it.amountCents },
+            totalCents = counted.sumOf { it.amountCents },
             paidCents = data.payments.sumOf { it.amountCents },
             coveredCents = data.covers.sumOf { it.amountCents },
             expenses = data.expenses,
@@ -405,9 +418,13 @@ class MonnyViewModel(
         note: String,
         receiptPath: String?,
         sharedPercent: Int = 0,
+        excludeUntilCut: Boolean = false,
     ) {
         viewModelScope.launch {
-            repo.addExpense(cardId, categoryId, date, amountCents, merchant, note, receiptPath, sharedPercent)
+            repo.addExpense(
+                cardId, categoryId, date, amountCents, merchant, note, receiptPath,
+                sharedPercent, excludeUntilCut,
+            )
             notify("Gasto guardado")
         }
     }
@@ -460,10 +477,15 @@ class MonnyViewModel(
         months: Int,
         date: LocalDate,
         note: String,
+        sharedPercent: Int = 0,
+        excludeUntilCut: Boolean = false,
         onDone: () -> Unit = {},
     ) {
         viewModelScope.launch {
-            repo.createPlan(cardId, categoryId, merchant, totalCents, months, date, note)
+            repo.createPlan(
+                cardId, categoryId, merchant, totalCents, months, date, note,
+                sharedPercent, excludeUntilCut,
+            )
             notify("Compra a tasa 0 creada")
             onDone()
         }

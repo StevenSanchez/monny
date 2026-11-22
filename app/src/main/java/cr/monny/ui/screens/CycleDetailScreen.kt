@@ -173,7 +173,9 @@ fun CycleDetailScreen(
                 MonnyCard(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(18.dp)) {
                         Text("Por categoría", style = MaterialTheme.typography.titleMedium)
-                        state.expenses.groupBy { it.categoryId }
+                        state.expenses
+                            .filterNot { state.openCycle && it.excludeUntilCut }
+                            .groupBy { it.categoryId }
                             .map { (categoryId, list) ->
                                 val category = state.categories.firstOrNull { it.id == categoryId }
                                 Triple(category, list.sumOf { it.amountCents }, list.size)

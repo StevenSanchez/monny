@@ -23,6 +23,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -197,6 +198,11 @@ private fun PlanFormDialog(
     var total by remember { mutableStateOf((plan.totalCents / 100).toString()) }
     var monthsText by remember { mutableStateOf(plan.months.toString()) }
     var categoryId by remember { mutableStateOf(plan.categoryId) }
+    var shared by remember { mutableStateOf(plan.sharedPercent > 0) }
+    var sharedPercentText by remember {
+        mutableStateOf((plan.sharedPercent.takeIf { it > 0 } ?: 50).toString())
+    }
+    var excludeUntilCut by remember { mutableStateOf(plan.excludeUntilCut) }
 
     val cents = Money.parse(total) ?: 0L
     val months = monthsText.toIntOrNull() ?: 0
@@ -250,6 +256,45 @@ private fun PlanFormDialog(
                     }
                 }
                 Spacer(Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Compartido", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            "Otra persona te paga una parte de cada cuota",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(checked = shared, onCheckedChange = { shared = it })
+                }
+                if (shared) {
+                    OutlinedTextField(
+                        value = sharedPercentText,
+                        onValueChange = { input ->
+                            sharedPercentText = input.filter { it.isDigit() }.take(3)
+                        },
+                        label = { Text("Porcentaje de la otra persona") },
+                        suffix = { Text("%") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("No sumar hasta el corte", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            "Las cuotas se cuentan cuando cierre el ciclo",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(
+                        checked = excludeUntilCut,
+                        onCheckedChange = { excludeUntilCut = it },
+                    )
+                }
+                Spacer(Modifier.height(10.dp))
                 Text(
                     "Si cambiás el monto o las cuotas se recalculan todas las cuotas de la compra.",
                     style = MaterialTheme.typography.bodySmall,
@@ -271,6 +316,12 @@ private fun PlanFormDialog(
                             totalCents = cents,
                             months = months,
                             categoryId = categoryId,
+                            sharedPercent = if (shared) {
+                                (sharedPercentText.toIntOrNull() ?: 0).coerceIn(0, 100)
+                            } else {
+                                0
+                            },
+                            excludeUntilCut = excludeUntilCut,
                         ),
                     )
                 },

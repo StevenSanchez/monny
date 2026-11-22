@@ -72,6 +72,7 @@ object Backup {
                     put("installmentCount", e.installmentCount ?: JSONObject.NULL)
                     put("sharedPercent", e.sharedPercent)
                     put("recurringId", e.recurringId ?: JSONObject.NULL)
+                    put("excludeUntilCut", e.excludeUntilCut)
                 })
             }
         })
@@ -124,6 +125,8 @@ object Backup {
                     put("merchant", p.merchant); put("totalCents", p.totalCents)
                     put("months", p.months); put("firstDate", p.firstDate)
                     put("note", p.note); put("createdAt", p.createdAt)
+                    put("sharedPercent", p.sharedPercent)
+                    put("excludeUntilCut", p.excludeUntilCut)
                 })
             }
         })
@@ -135,6 +138,7 @@ object Backup {
                     put("merchant", r.merchant); put("amountCents", r.amountCents)
                     put("firstDate", r.firstDate); put("note", r.note)
                     put("active", r.active); put("sharedPercent", r.sharedPercent)
+                    put("excludeUntilCut", r.excludeUntilCut)
                     put("createdAt", r.createdAt)
                 })
             }
@@ -206,6 +210,7 @@ object Backup {
                     installmentCount = if (o.isNull("installmentCount")) null else o.getInt("installmentCount"),
                     sharedPercent = o.optInt("sharedPercent", 0),
                     recurringId = if (o.isNull("recurringId")) null else o.getLong("recurringId"),
+                    excludeUntilCut = o.optBoolean("excludeUntilCut", false),
                 )
             },
             payments = root.optJSONArray("payments").objects().map { o ->
@@ -249,6 +254,8 @@ object Backup {
                     totalCents = o.getLong("totalCents"), months = o.getInt("months"),
                     firstDate = o.getLong("firstDate"), note = o.optString("note"),
                     createdAt = o.optLong("createdAt", System.currentTimeMillis()),
+                    sharedPercent = o.optInt("sharedPercent", 0),
+                    excludeUntilCut = o.optBoolean("excludeUntilCut", false),
                 )
             },
             recurring = root.optJSONArray("recurring").objects().map { o ->
@@ -258,6 +265,7 @@ object Backup {
                     amountCents = o.getLong("amountCents"), firstDate = o.getLong("firstDate"),
                     note = o.optString("note"), active = o.optBoolean("active", true),
                     sharedPercent = o.optInt("sharedPercent", 0),
+                    excludeUntilCut = o.optBoolean("excludeUntilCut", false),
                     createdAt = o.optLong("createdAt", System.currentTimeMillis()),
                 )
             },

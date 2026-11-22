@@ -51,19 +51,25 @@ fun ReportsScreen(
     val categories by vm.categories.collectAsStateWithLifecycle()
     val sharedEnabled by vm.sharedEnabled.collectAsStateWithLifecycle()
     val sharedPayments by vm.sharedPayments.collectAsStateWithLifecycle()
-    val allExpenses by vm.allExpenses.collectAsStateWithLifecycle()
+    val home by vm.home.collectAsStateWithLifecycle()
 
     var period by remember { mutableStateOf(6) }
 
     val rows = remember(history, period) { history.take(period).reversed() }
     val cutKeys = remember(rows) { rows.map { it.cutKey.toEpochDay() }.toSet() }
-    val periodExpenses = remember(expenses, cutKeys) { expenses.filter { it.cycleKey in cutKeys } }
+    val currentCut = home.cutKey.toEpochDay()
+    val periodExpenses = remember(expenses, cutKeys, currentCut) {
+        expenses.filter { it.cycleKey in cutKeys }
+            .filterNot { it.excludeUntilCut && it.cycleKey == currentCut }
+    }
 
     val total = rows.sumOf { it.totalCents }
     val average = if (rows.isEmpty()) 0L else total / rows.size
     val maximum = rows.maxOfOrNull { it.totalCents } ?: 0L
-    val sharedOwed = allExpenses.sumOf { it.amountCents * it.sharedPercent / 100 } -
-        sharedPayments.sumOf { it.amountCents }
+    val sharedOwed = home.expenses.sumOf { it.amountCents * it.sharedPercent / 100 } -
+        sharedPayments
+            .filter { it.cycleKey == home.cutKey.toEpochDay() }
+            .sumOf { it.amountCents }
 
     val byCategory = remember(periodExpenses, categories) {
         periodExpenses.groupBy { it.categoryId }

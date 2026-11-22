@@ -5,9 +5,9 @@ App Android para llevar los gastos de tarjetas de crédito, el dinero apartado
 
 📖 [Arquitectura del código](docs/ARQUITECTURA.md)
 
-| Inicio | Reportes | Detalle de ciclo |
-|---|---|---|
-| <img src="docs/screenshots/inicio.png" width="240"> | <img src="docs/screenshots/reportes.png" width="240"> | <img src="docs/screenshots/ciclo.png" width="240"> |
+| Inicio | Compartido | Reportes | Pago |
+|---|---|---|---|
+| <img src="docs/screenshots/inicio.png" width="220"> | <img src="docs/screenshots/compartido.png" width="220"> | <img src="docs/screenshots/reportes.png" width="220"> | <img src="docs/screenshots/pago.png" width="220"> |
 
 ## Stack
 
@@ -28,7 +28,14 @@ App Android para llevar los gastos de tarjetas de crédito, el dinero apartado
 - **Gastos compartidos** (opcional, Ajustes): al registrar un gasto podés marcar
   qué porcentaje le corresponde a otra persona. En Inicio ves cuánto te deben y
   podés **registrar un abono** eligiendo si la plata va al "en sobre" del ciclo
-  o a uno de tus sobres.
+  o a uno de tus sobres. La cuenta **se reinicia en cada corte**: solo se
+  arrastra lo del ciclo abierto, así no quedan centavos pendientes de meses
+  anteriores. La opción también está disponible en compras a tasa 0 y gastos
+  fijos.
+- **No sumar hasta el corte**: un gasto puede marcarse para que no cuente en el
+  total del ciclo hasta que cierre (por ejemplo, una compra que otra persona
+  paga después). Aplica a gastos normales, cuotas de tasa 0 y gastos fijos, y
+  se puede activar o desactivar al crear o editar.
 - **Gastos fijos**: seguros, suscripciones y cobros mensuales. Se crean solos en
   cada ciclo (también el próximo) mientras estén activos. Se administran en
   Ajustes → Gastos fijos.
@@ -37,15 +44,16 @@ App Android para llevar los gastos de tarjetas de crédito, el dinero apartado
   desglose por categoría.
 - **Tasa 0**: una compra dividida en cuotas mensuales. Cada ciclo recibe su
   cuota automáticamente y se muestra "Cuota 2/6" en el gasto. Se administran en
-  Ajustes → Tasa 0 (editar monto, cuotas o categoría; eliminar deja las cuotas
-  pasadas en el historial).
+  Ajustes → Tasa 0 (editar monto, cuotas, categoría, compartido o "no sumar").
 - **En sobre**: dinero apartado para pagar ese ciclo. Arranca en 0 cada ciclo.
-  Se puede **apartar** o **retirar** (para emergencias) y después reponer.
+  Se puede **guardar** o **retirar** (para emergencias) y después reponer.
 - **Falta / A favor**: `gastado − pagado − en sobre`. Positivo = debés,
   negativo = te sobra.
 - **Sobre**: bolsa de ahorro con saldo propio (tipo BCR). Se le puede aportar,
   retirar o pasar plata al ciclo de una tarjeta.
 - **Pago**: abono a la tarjeta, opcional, con fecha y foto del comprobante.
+  Antes de guardar ves **cuánto hay en el sobre, cuánto ya pagaste y cuánto
+  falta**; si el monto dejaría saldo a favor, la app lo avisa y pide confirmar.
   No descuenta el "en sobre" automáticamente: son dos cosas distintas
   (lo apartado y lo ya pagado).
 
@@ -54,15 +62,17 @@ App Android para llevar los gastos de tarjetas de crédito, el dinero apartado
 - Tarjetas con día de corte, días para pagar (14 por defecto) y avisos.
 - Ciclos calculados automáticamente; nunca hay que crear un "mes".
 - Gastos con monto, categoría, motivo, nota, fecha y comprobante.
+- Gastos compartidos con porcentaje por persona y cuenta que se reinicia en cada corte.
+- "No sumar hasta el corte" en gastos, tasa 0 y gastos fijos.
 - Presupuesto por categoría (opcional, por ciclo) con avance y aviso de "te pasaste".
 - Subtotal por categoría, total del ciclo y panorama "en sobre".
 - Sobres con saldo, aportes, retiros y traspaso al ciclo de una tarjeta.
-- Pagos con fecha y comprobante.
+- Pagos con fecha, comprobante y resumen claro de sobre / pagado / falta.
 - Historial de ciclos (con opción de eliminar un cierre completo).
 - **Pago pendiente** del último ciclo cerrado en Inicio, con su vencimiento y botón Pagar.
 - Borrar todos los datos desde Ajustes → Datos (con confirmación escribiendo BORRAR).
 - Recordatorios diarios (corte y vencimiento) con WorkManager.
-- Tema claro/oscuro/sistema.
+- Diseño con tipografía Fraunces + Manrope, tema claro/oscuro/sistema y barra flotante.
 - Todo local, sin permisos de internet.
 
 ## Pendiente / próximas fases
@@ -125,7 +135,7 @@ El APK de release queda en `app/build/outputs/apk/release/app-release.apk`.
 - Si se pierde la llave, Android obliga a desinstalar para poder instalar otra
   versión (y se pierden los datos locales).
 - Actualizar con la misma firma conserva todo. Las migraciones de Room están
-  versionadas (1→2→3→4→5→6) para no perder datos.
+  versionadas (1→2→3→4→5→6→7→8→9→10) para no perder datos.
 
 ## Respaldos
 

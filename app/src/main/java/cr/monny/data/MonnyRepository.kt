@@ -182,6 +182,7 @@ class MonnyRepository(private val db: MonnyDb) {
         note: String = "",
         receiptPath: String? = null,
         sharedPercent: Int = 0,
+        excludeUntilCut: Boolean = false,
     ): Long {
         val card = db.cards().byId(cardId) ?: error("Tarjeta no encontrada")
         val cycleKey = CycleMath.purchaseCycleKey(date, card.cutDay, card.cutDayInNextCycle).toEpochDay()
@@ -196,6 +197,7 @@ class MonnyRepository(private val db: MonnyDb) {
                 note = note.trim(),
                 receiptPath = receiptPath,
                 sharedPercent = sharedPercent.coerceIn(0, 100),
+                excludeUntilCut = excludeUntilCut,
             ),
         )
     }
@@ -493,6 +495,8 @@ class MonnyRepository(private val db: MonnyDb) {
         months: Int,
         date: LocalDate,
         note: String = "",
+        sharedPercent: Int = 0,
+        excludeUntilCut: Boolean = false,
     ): Long {
         require(totalCents > 0) { "Monto inválido" }
         require(months in 2..60) { "Cantidad de cuotas inválida" }
@@ -505,6 +509,8 @@ class MonnyRepository(private val db: MonnyDb) {
             months = months,
             firstDate = date.toEpochDay(),
             note = note.trim(),
+            sharedPercent = sharedPercent.coerceIn(0, 100),
+            excludeUntilCut = excludeUntilCut,
         )
         var id = 0L
         db.withTransaction {
@@ -556,6 +562,8 @@ class MonnyRepository(private val db: MonnyDb) {
                     planId = plan.id,
                     installmentIndex = i + 1,
                     installmentCount = plan.months,
+                    sharedPercent = plan.sharedPercent,
+                    excludeUntilCut = plan.excludeUntilCut,
                 ),
             )
         }
@@ -576,8 +584,13 @@ class MonnyRepository(private val db: MonnyDb) {
         date: LocalDate = LocalDate.now(),
     ): Boolean {
         if (amountCents <= 0) return false
-        val owed = db.expenses().all().sumOf { it.amountCents * it.sharedPercent / 100 }
-        val paid = db.sharedPayments().all().sumOf { it.amountCents }
+        // La deuda compartida se reinicia en cada corte: solo cuenta el ciclo.
+        val owed = db.expenses().all()
+            .filter { it.cycleKey == cycleKey }
+            .sumOf { it.amountCents * it.sharedPercent / 100 }
+        val paid = db.sharedPayments().all()
+            .filter { it.cycleKey == cycleKey }
+            .sumOf { it.amountCents }
         if (amountCents > owed - paid) return false
 
         return runCatching {
@@ -687,6 +700,7 @@ class MonnyRepository(private val db: MonnyDb) {
                                 merchant = rule.merchant,
                                 note = rule.note,
                                 sharedPercent = rule.sharedPercent,
+                                excludeUntilCut = rule.excludeUntilCut,
                                 recurringId = rule.id,
                             ),
                         )

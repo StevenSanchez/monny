@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material3.AlertDialog
@@ -40,6 +41,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cr.monny.data.Category
@@ -203,6 +205,11 @@ private fun RecurringDialog(
         mutableStateOf(initial?.let { LocalDate.ofEpochDay(it.firstDate) } ?: LocalDate.now())
     }
     var showDatePicker by remember { mutableStateOf(false) }
+    var shared by remember { mutableStateOf((initial?.sharedPercent ?: 0) > 0) }
+    var sharedPercentText by remember {
+        mutableStateOf(((initial?.sharedPercent ?: 0).takeIf { it > 0 } ?: 50).toString())
+    }
+    var excludeUntilCut by remember { mutableStateOf(initial?.excludeUntilCut ?: false) }
 
     val cents = Money.parse(amount) ?: 0L
     val targetCard = initial?.cardId ?: cardId ?: 0L
@@ -237,6 +244,45 @@ private fun RecurringDialog(
                             label = { Text(category.name) },
                         )
                     }
+                }
+                Spacer(Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Compartido", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            "Otra persona te paga una parte de cada cobro",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(checked = shared, onCheckedChange = { shared = it })
+                }
+                if (shared) {
+                    OutlinedTextField(
+                        value = sharedPercentText,
+                        onValueChange = { input ->
+                            sharedPercentText = input.filter { it.isDigit() }.take(3)
+                        },
+                        label = { Text("Porcentaje de la otra persona") },
+                        suffix = { Text("%") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("No sumar hasta el corte", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            "El cobro se cuenta cuando cierre el ciclo",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(
+                        checked = excludeUntilCut,
+                        onCheckedChange = { excludeUntilCut = it },
+                    )
                 }
                 Spacer(Modifier.height(10.dp))
                 Row(
@@ -293,6 +339,12 @@ private fun RecurringDialog(
                             amountCents = cents,
                             categoryId = categoryId,
                             firstDate = date.toEpochDay(),
+                            sharedPercent = if (shared) {
+                                (sharedPercentText.toIntOrNull() ?: 0).coerceIn(0, 100)
+                            } else {
+                                0
+                            },
+                            excludeUntilCut = excludeUntilCut,
                         ),
                     )
                 },

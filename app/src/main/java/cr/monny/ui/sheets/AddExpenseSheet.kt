@@ -114,6 +114,7 @@ fun AddExpenseSheet(
     var sharedPercentText by remember {
         mutableStateOf(((editing?.sharedPercent ?: 0).takeIf { it > 0 } ?: 50).toString())
     }
+    var excludeUntilCut by remember { mutableStateOf(editing?.excludeUntilCut ?: false) }
     var cycleOverride by remember { mutableStateOf<LocalDate?>(null) }
     var showCyclePicker by remember { mutableStateOf(false) }
 
@@ -398,7 +399,7 @@ fun AddExpenseSheet(
                 }
             }
 
-            if (sharedEnabled && !isPlan) {
+            if (sharedEnabled) {
                 Spacer(Modifier.height(4.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -442,10 +443,28 @@ fun AddExpenseSheet(
                 }
             }
 
+            Spacer(Modifier.height(4.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("No sumar hasta el corte", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "Se cuenta cuando cierre el ciclo",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = excludeUntilCut,
+                    onCheckedChange = { excludeUntilCut = it },
+                )
+            }
+
             if (!showNote) {
                 TextButton(onClick = { showNote = true }) { Text("Agregar nota") }
-            } else {
-                Spacer(Modifier.height(8.dp))
+            } else {                Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
                     value = note,
                     onValueChange = { note = it },
@@ -501,6 +520,8 @@ fun AddExpenseSheet(
                             months = months,
                             date = date,
                             note = note,
+                            sharedPercent = sharedValue,
+                            excludeUntilCut = excludeUntilCut,
                         ) { onDismiss() }
                         return@Button
                     }
@@ -514,6 +535,7 @@ fun AddExpenseSheet(
                             note = note,
                             receiptPath = receiptPath,
                             sharedPercent = sharedValue,
+                            excludeUntilCut = excludeUntilCut,
                         )
                     } else {
                         vm.updateExpense(
@@ -525,6 +547,7 @@ fun AddExpenseSheet(
                                 note = note,
                                 receiptPath = receiptPath,
                                 sharedPercent = sharedValue,
+                                excludeUntilCut = excludeUntilCut,
                             ),
                             cycleOverride = cycleOverride,
                         )

@@ -57,6 +57,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cr.monny.domain.Money
+import cr.monny.ui.theme.LocalMonnyColors
 import cr.monny.ui.theme.PaletteHex
 import cr.monny.ui.theme.hexToColor
 
@@ -65,7 +66,11 @@ import cr.monny.ui.theme.hexToColor
  * diálogos, selector de color y campos de dinero.
  */
 
-/** Contenedor redondeado con borde suave que se usa en casi toda la app. */
+/**
+ * Contenedor redondeado con borde suave y una sombra mínima que se usa en casi
+ * toda la app. La sombra es muy baja a propósito: da profundidad sin ensuciar
+ * el fondo tipo papel.
+ */
 @Composable
 fun MonnyCard(
     modifier: Modifier = Modifier,
@@ -78,8 +83,9 @@ fun MonnyCard(
         shape = RoundedCornerShape(24.dp),
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
-            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f),
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.85f),
         ),
+        shadowElevation = 2.dp,
         content = content,
     )
 }
@@ -114,7 +120,24 @@ fun SectionHeader(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text(title, style = MaterialTheme.typography.titleMedium)
+        Row(
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(16.dp)
+                    .height(3.dp)
+                    .background(LocalMonnyColors.current.gold, RoundedCornerShape(50)),
+            )
+            Spacer(Modifier.width(10.dp))
+            Text(
+                title,
+                style = MaterialTheme.typography.titleLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
         trailing?.invoke()
     }
 }
@@ -154,19 +177,28 @@ fun MonnyTopBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (onBack != null) {
-            IconButton(onClick = onBack) {
-                Icon(
-                    Icons.AutoMirrored.Rounded.ArrowBack,
-                    contentDescription = "Volver",
-                    tint = MaterialTheme.colorScheme.onBackground,
-                )
+            Surface(
+                onClick = onBack,
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                modifier = Modifier.size(40.dp),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.AutoMirrored.Rounded.ArrowBack,
+                        contentDescription = "Volver",
+                        tint = MaterialTheme.colorScheme.onBackground,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
             }
+            Spacer(Modifier.width(12.dp))
         } else {
-            Spacer(Modifier.width(4.dp))
+            Spacer(Modifier.width(8.dp))
         }
         Column(modifier = Modifier.weight(1f)) {
             Text(

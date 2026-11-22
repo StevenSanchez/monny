@@ -1,7 +1,15 @@
 package cr.monny.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Home
@@ -13,9 +21,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -24,7 +34,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -48,6 +60,7 @@ import cr.monny.ui.screens.PlansScreen
 import cr.monny.ui.screens.ReportsScreen
 import cr.monny.ui.screens.RecurringScreen
 import cr.monny.ui.screens.SettingsScreen
+import cr.monny.ui.screens.SharedScreen
 import cr.monny.ui.sheets.AddExpenseSheet
 import java.time.LocalDate
 
@@ -74,6 +87,7 @@ object Routes {
     const val PLANS = "planes"
     const val REPORTS = "reportes"
     const val RECURRING = "fijos"
+    const val SHARED = "compartido"
     const val ENVELOPE = "sobre/{id}"
     const val CYCLE = "ciclo/{cardId}/{cycleKey}"
     const val PAYMENT = "pago/{cardId}/{cycleKey}"
@@ -119,21 +133,61 @@ fun MonnyRoot(
         snackbarHost = { SnackbarHost(snackbarHost) },
         bottomBar = {
             AnimatedVisibility(visible = showBottomBar) {
-                NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-                    tabs.forEach { tab ->
-                        NavigationBarItem(
-                            selected = route == tab.route,
-                            onClick = {
-                                if (route != tab.route) {
-                                    navController.navigate(tab.route) {
-                                        popUpTo(Routes.HOME)
-                                        launchSingleTop = true
-                                    }
-                                }
-                            },
-                            icon = { Icon(tab.icon, contentDescription = tab.label) },
-                            label = { Text(tab.label) },
-                        )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(horizontal = 18.dp, vertical = 8.dp),
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(26.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        border = BorderStroke(
+                            1.dp,
+                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.9f),
+                        ),
+                        shadowElevation = 10.dp,
+                    ) {
+                        NavigationBar(
+                            containerColor = Color.Transparent,
+                            tonalElevation = 0.dp,
+                            windowInsets = WindowInsets(0),
+                            modifier = Modifier.height(66.dp),
+                        ) {
+                            tabs.forEach { tab ->
+                                NavigationBarItem(
+                                    selected = route == tab.route,
+                                    onClick = {
+                                        if (route != tab.route) {
+                                            navController.navigate(tab.route) {
+                                                popUpTo(Routes.HOME)
+                                                launchSingleTop = true
+                                            }
+                                        }
+                                    },
+                                    colors = NavigationBarItemDefaults.colors(
+                                        selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        selectedTextColor = MaterialTheme.colorScheme.onSurface,
+                                        indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    ),
+                                    icon = {
+                                        Icon(
+                                            tab.icon,
+                                            contentDescription = tab.label,
+                                            modifier = Modifier.size(22.dp),
+                                        )
+                                    },
+                                    label = {
+                                        Text(
+                                            tab.label,
+                                            style = MaterialTheme.typography.labelSmall,
+                                        )
+                                    },
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -146,7 +200,8 @@ fun MonnyRoot(
                         sheetOpen = true
                     },
                     icon = { Icon(Icons.Rounded.Add, contentDescription = null) },
-                    text = { Text("Gasto") },
+                    text = { Text("Gasto", style = MaterialTheme.typography.labelLarge) },
+                    shape = RoundedCornerShape(50),
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                 )
@@ -168,6 +223,11 @@ fun MonnyRoot(
                     onPay = { cardId, cycleKey -> navController.navigate(Routes.payment(cardId, cycleKey)) },
                     onAddEnvelope = { navController.navigate(Routes.ENVELOPES) },
                     onImport = { navController.navigate(Routes.DATA) },
+                    onShared = { navController.navigate(Routes.SHARED) },
+                    onEditExpense = { expense ->
+                        editing = expense
+                        sheetOpen = true
+                    },
                 )
             }
             composable(Routes.MOVEMENTS) {
@@ -226,6 +286,9 @@ fun MonnyRoot(
             }
             composable(Routes.RECURRING) {
                 RecurringScreen(vm = vm, onBack = { navController.popBackStack() })
+            }
+            composable(Routes.SHARED) {
+                SharedScreen(vm = vm, onBack = { navController.popBackStack() })
             }
             composable(
                 route = Routes.CYCLE,
